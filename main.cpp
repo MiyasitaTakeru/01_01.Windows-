@@ -4,7 +4,7 @@
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	//コンソールへの文字出力
-	OutputDebugStringA("Hello,DirectX!\n");
+	OutputDebugStringA("Good evening,DirectX!\n");
 
 	return 0;
 }
