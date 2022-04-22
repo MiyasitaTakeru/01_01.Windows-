@@ -5,11 +5,15 @@
 #include <dxgi1_6.h>
 #include <cassert>
 #include <DirectXMath.h>
-using namespace DirectX;
+#define DIRECTINPUT_VERSION     0x0800   // DirectInputのバージョン指定
+#include <dinput.h>
+#pragma comment(lib, "dinput8.lib")
+#pragma comment(lib, "dxguid.lib")
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+using namespace DirectX;
 
 #pragma region ウィンドウプロシージャ
 // ウィンドウプロシージャ
@@ -203,6 +207,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ID3D12Fence* fence = nullptr;
 	UINT64 fenceVal = 0;
 	result = device->CreateFence(fenceVal, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+
+	// DirectInputの初期化
+	IDirectInput8* directInput = nullptr;
+	result = DirectInput8Create(
+		w.hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&directInput, nullptr);
+	assert(SUCCEEDED(result));
+
+	// キーボードデバイスの生成
+	IDirectInputDevice8* keyboard = nullptr;
+	result = directInput->CreateDevice(GUID_SysKeyboard, &keyboard, NULL);
+	assert(SUCCEEDED(result));
+
+	// 入力データ形式のセット
+	result = keyboard->SetDataFormat(&c_dfDIKeyboard); // 標準形式
+	assert(SUCCEEDED(result));
+
+	// 排他制御レベルのセット
+	result = keyboard->SetCooperativeLevel(
+		hwnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE | DISCL_NOWINKEY);
+	assert(SUCCEEDED(result));
+
 
 #pragma endregion DirectX初期化処理
 // --------------------------------DirectX初期化処理 ここまで--------------------------------
@@ -407,6 +432,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// --------------------------------DirectX毎フレーム処理 ここから--------------------------------
 #pragma region DirectX毎フレーム処理
+		// キーボード情報の取得開始
+		keyboard->Acquire();
+
+		// 全キーの入力状態を取得する
+		BYTE key[256] = {};
+		keyboard->GetDeviceState(sizeof(key), key);
+
 		// バックバッファの番号を取得(2つなので0番か1番)
 		UINT bbIndex = swapChain->GetCurrentBackBufferIndex();
 
@@ -425,7 +457,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// 3.画面クリア R G B A
 		FLOAT clearColor[] = { 0.1f,0.25f, 0.5f,0.0f }; // 青っぽい色
+		if (key[DIK_SPACE])
+		{
+			clearColor[0] = 1.0f;
+		}
 		commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+		
 
 		// 4.描画コマンド
 		// ビューポート設定コマンド
@@ -494,7 +532,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion DirectX毎フレーム処理
 		// --------------------------------DirectX毎フレーム処理 ここまで--------------------------------
-
+		
 	}
 
 #pragma region WindowsAPI後始末
