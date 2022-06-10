@@ -245,10 +245,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// 頂点データ
 	Vertex vertices[] = {
 		// x      y     z       u     v
-		{{    0.0f, 100.0f, 0.0f}, {0.0f, 1.0f}}, // 左下
-		{{    0.0f,     0.0f, 0.0f}, {0.0f, 0.0f}}, // 左上
-		{{100.0f,  100.0f, 0.0f}, {1.0f, 1.0f}}, // 右下
-		{{100.0f,     0.0f, 0.0f}, {1.0f, 0.0f}}, // 右上
+		{{  -50.0f,  -50.0f,  50.0f}, {0.0f, 1.0f}}, // 左下
+		{{  -50.0f,   50.0f,  50.0f}, {0.0f, 0.0f}}, // 左上
+		{{   50.0f,  -50.0f,  50.0f}, {1.0f, 1.0f}}, // 右下
+		{{   50.0f,   50.0f,  50.0f}, {1.0f, 0.0f}}, // 右上
 	};
 
 	// インデックスデータ
@@ -511,12 +511,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		assert(SUCCEEDED(result));
 
 		// 単位行列を代入
-		constMapTransform->mat = XMMatrixIdentity();
+		/*constMapTransform->mat = XMMatrixIdentity();
 		constMapTransform->mat.r[0].m128_f32[0] = 2.0f / window_width;
 		constMapTransform->mat.r[1].m128_f32[1] = -2.0f / window_height;
 		constMapTransform->mat.r[3].m128_f32[0] = -1.0f;
-		constMapTransform->mat.r[3].m128_f32[1] = 1.0f;
-
+		constMapTransform->mat.r[3].m128_f32[1] = 1.0f;*/
+		/*constMapTransform->mat = XMMatrixOrthographicOffCenterLH(
+			0, 1280,
+			720, 0,
+			0.0f, 1.0f
+		);*/
+		//透視変換行列の計算
+		XMMATRIX matProjection = XMMatrixPerspectiveFovLH(
+			XMConvertToRadians(45.0f),
+			(float)window_width / window_height,
+			0.1f, 1000.0f
+		);
+		constMapTransform->mat = matProjection;
 	}
 
 	// ヒープ設定
@@ -595,7 +606,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	textureResourceDesc.DepthOrArraySize = (UINT16)metadata.arraySize;
 	textureResourceDesc.MipLevels = (UINT16)metadata.mipLevels;
 	textureResourceDesc.SampleDesc.Count = 1;
-
 
 
 	// テクスチャバッファの生成
