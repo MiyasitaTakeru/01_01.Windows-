@@ -244,12 +244,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	};
 	// 頂点データ
 	Vertex vertices[] = {
-		// x      y     z       u     v
-		{{  -50.0f,  -50.0f,  50.0f}, {0.0f, 1.0f}}, // 左下
-		{{  -50.0f,   50.0f,  50.0f}, {0.0f, 0.0f}}, // 左上
-		{{   50.0f,  -50.0f,  50.0f}, {1.0f, 1.0f}}, // 右下
-		{{   50.0f,   50.0f,  50.0f}, {1.0f, 0.0f}}, // 右上
+		//       x          y        z           u      v
+		{{  -50.0f,  -50.0f,  0.0f}, {0.0f, 1.0f}}, // 左下
+		{{  -50.0f,   50.0f,  0.0f}, {0.0f, 0.0f}}, // 左上
+		{{   50.0f,  -50.0f,  0.0f}, {1.0f, 1.0f}}, // 右下
+		{{   50.0f,   50.0f,  0.0f}, {1.0f, 0.0f}}, // 右上
 	};
+	float angle = 0.0f;//カメラの回転角
 
 	// インデックスデータ
 	unsigned short indices[] = {
@@ -413,7 +414,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ibView.SizeInBytes = sizeIB;
 
 
-
 	// グラフィックスパイプライン設定
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc{};
 
@@ -521,14 +521,34 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			720, 0,
 			0.0f, 1.0f
 		);*/
-		//透視変換行列の計算
-		XMMATRIX matProjection = XMMatrixPerspectiveFovLH(
+	}
+
+	//ビュー変換行列
+	XMMATRIX matView;
+	//視点座標
+	XMFLOAT3 eye(0, 0, -100);
+	//注視点座標
+	XMFLOAT3 target(0, 0, 0);
+	//上方向ベクトル
+	XMFLOAT3 up(0, 1, 0);
+	matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+
+	//射影変換行列(透視変換)
+	XMMATRIX matProjection =
+	XMMatrixPerspectiveFovLH(
 			XMConvertToRadians(45.0f),
 			(float)window_width / window_height,
 			0.1f, 1000.0f
-		);
-		constMapTransform->mat = matProjection;
-	}
+	);
+
+	//値の初期化
+	//スケーリング倍率
+	XMFLOAT3 scale = { 1.0f,1.0f,1.0f };
+	//回転角
+	XMFLOAT3 rotation = { 0.0f,0.0f,0.0f };
+	//座標
+	XMFLOAT3 position = { 0.0f,0.0f,0.0f };
+
 
 	// ヒープ設定
 	D3D12_HEAP_PROPERTIES cbHeapProp{};
@@ -759,6 +779,63 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// 全キーの入力状態を取得する
 		BYTE key[256] = {};
 		keyboard->GetDeviceState(sizeof(key), key);
+		
+		//いずれかのキーを押していたら
+		if (key[DIK_UP] || key[DIK_DOWN] || key[DIK_RIGHT] || key[DIK_LEFT]) {
+			//座標を移動する処理(z座標)
+			if (key[DIK_UP]) { position.z += 1.0f; }
+			else if (key[DIK_DOWN]) { position.z -= 1.0f; }
+			if (key[DIK_RIGHT]) { position.x += 1.0f; }
+			else if (key[DIK_LEFT]) { position.x -= 1.0f; }
+		}
+
+		//スケーリング行列
+		XMMATRIX matScale;
+		matScale = XMMatrixScaling(scale.x, scale.y, scale.z);
+
+		//回転行列
+		XMMATRIX matRot;
+		matRot = XMMatrixIdentity();
+		//Z軸周りに0度回転してから
+		matRot *= XMMatrixRotationZ(rotation.x);
+		//X軸周りに15度回転してから
+		matRot *= XMMatrixRotationX(rotation.y);
+		//Y軸周りに30度回転
+		matRot *= XMMatrixRotationY(rotation.z);
+		
+		//平行移動行列
+		XMMATRIX matTrans;
+		matTrans = XMMatrixTranslation(position.x, position.y, position.z);
+
+		//ワールド変換行列
+		XMMATRIX matWorld;
+		//単位行列を代入(リセット)
+		matWorld = XMMatrixIdentity();
+		//ワールド行列に回転を反映
+		matWorld *= matRot;
+		//ワールド行列にスケーリングを反映
+		matWorld *= matScale;
+		//ワールド行列に平行移動を反映
+		matWorld *= matTrans;
+
+		//World、View、Projectionを掛けて定数バッファに転送
+		constMapTransform->mat = matWorld * matView * matProjection;
+
+		if (key[DIK_D] || key[DIK_A])
+		{
+			if (key[DIK_D]) {
+				angle += XMConvertToRadians(1.0f);
+			}
+			else if (key[DIK_A]){
+				angle -= XMConvertToRadians(1.0f);
+			}
+			//angleラジアンだけY軸まわりに回転。半径は-100
+			eye.x = -100 * sinf(angle);
+			eye.z = -100 * cosf(angle);
+			//ビュー変換行列を作り直す
+			matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+		}
+
 
 		// バックバッファの番号を取得(2つなので0番か1番)
 		UINT bbIndex = swapChain->GetCurrentBackBufferIndex();
